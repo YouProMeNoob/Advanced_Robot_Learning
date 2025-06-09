@@ -60,6 +60,7 @@ chmod 777 /root/catkin_ws/shared/install_requirements.sh && /root/catkin_ws/shar
 
 
 ## Usage
+### Starting and Stopping the Docker Container
 Give permission to access X-Server
 ``` bash
 xhost +local:root
@@ -79,3 +80,78 @@ The container can be stopped with
 ``` bash
 docker stop arl_cpu_cont 
 ```
+
+### Running in Simulation (om_6dof_controller)
+This shows the deployment of the base controller (build by the team of Robotis)
+1. **Start ROS master** in one terminal:
+   ```bash
+   roscore
+   ```
+
+2. **Launch the controller** in a new terminal:
+   ```bash
+   roslaunch open_manipulator_6dof_controller open_manipulator_6dof_controller.launch use_platform:=false
+   ```
+
+3. **Launch Gazebo simulation** in another terminal:
+
+    **Important** Change Line 30 in `/root/catkin_ws/src/open_manipulator_6dof_simulations/open_manipulator_6dof_gazebo/launch/open_manipulator_6dof_gazebo.launch` to:  
+    ```
+    args="-urdf -model open_manipulator_6dof -z 0.0 -param robot_description -x 0.0 -y 0.0 -z 0.0 -R 0.0 -P 0.0 -Y 0.0 -J joint1 0.0 -J joint2 -0.78 -J joint3 1.5 -J joint4 0.0 -J joint5 0.8 -J joint6 0.0"/>
+    ```
+    otherwise you will not see the robot arm.
+
+    Then you can launch
+    ```bash
+    roslaunch open_manipulator_6dof_gazebo open_manipulator_6dof_gazebo.launch controller:=position
+    ```
+
+4. **Launch the GUI control panel**:
+   ```bash
+   roslaunch open_manipulator_6dof_control_gui open_manipulator_6dof_control_gui.launch
+   ```
+
+### Running in Simulation (om_position_controller)
+If you’re unable to access or work with the real robot, a simulation environment is provided via the `om_position_controller` package. Follow these steps:
+
+1. **Start ROS master** in one terminal:
+   ```bash
+   roscore
+   ```
+
+2. **Launch the controller** in a new terminal:
+   ```bash
+   roslaunch open_manipulator_6dof_controller open_manipulator_6dof_controller.launch use_platform:=false
+   ```
+
+3. **Start the position controller (simulation mode):**
+   ```bash
+   roslaunch om_position_controller position_control.launch sim:=true
+   ```
+
+4. **Start the republishing of the cube coordinates**
+   ```bash 
+   roscd om_position_controller/scripts && \
+   python3 4_rs_detect_sim.py 
+   ```
+
+5. **(Optional)Visualise your recordings**
+   First play the rosbag and then execute this script
+   ```bash 
+   roscd om_position_controller/scripts && \
+   python3 simulated_trajectory.py
+   ```
+
+6. **Execute the pick_and_place script.**
+   ```bash 
+   roscd om_position_controller/scripts && \
+   python3 pick_and_place.py
+   ```
+
+7. **For going back to the home pose execute:**
+   ```bash 
+   roscd om_position_controller/scripts && \
+   python3 move_to_home.py 
+   ```
+
+
