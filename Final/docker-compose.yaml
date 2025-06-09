@@ -1,0 +1,29 @@
+services:
+  cpu:
+    image: om_noetic_v2:latest
+    container_name: arl_cpu_cont
+    build:
+      context: .
+      dockerfile: cpu.Dockerfile
+    privileged: true
+    network_mode: host
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - $HOME/.Xauthority:/root/.Xauthority:rw
+      - /dev:/dev
+      - ./src:/root/catkin_ws/shared:rw
+      - ./recordings_final:/root/catkin_ws/recordings:rw
+    device_cgroup_rules:
+      - "c 81:* rmw"
+      - "c 189:* rmw"
+    stdin_open: true  # equivalent to -i
+    tty: true         # equivalent to -t
+    profiles:
+      - cpu
+
+  #sudo apt-get update
+  #sudo apt-get install docker-compose-plugin
+  #docker compose up
