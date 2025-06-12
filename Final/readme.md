@@ -76,6 +76,11 @@ Create a new terminal inside the container
 docker exec -it arl_cpu_cont bash -c "source devel/setup.bash && cd /root/catkin_ws/shared && bash"
 ```
 
+Open terminator inside the container (will be installed with install_requirements.sh). Then you dont have to do docker exec for each new terminal window.
+``` bash
+terminator
+```
+
 The container can be stopped with 
 ``` bash
 docker stop arl_cpu_cont 
