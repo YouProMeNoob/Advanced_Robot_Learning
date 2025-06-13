@@ -22,10 +22,17 @@ docker tag <existing-image-id or name> om_noetic_v2:latest
 ```
 
 Once you have an image then you need to run docker compose to create a container from the image and then use docker exec to start an interactive session inside the container.
+- cpu
 ``` bash
 xhost +local:root
 docker compose --profile cpu up -d
 docker exec -it arl_cpu_cont bash -c "source devel/setup.bash && bash"
+```
+- GPU
+``` bash
+xhost +local:root
+docker compose --profile gpu up -d
+docker exec -it arl_gpu_cont bash -c "source devel/setup.bash && bash"
 ```
 
 It is very likely that your `catkin_ws/src` is outdated! Use this script that will download the latest commit from github and will run `catkin_make` for you
@@ -40,8 +47,13 @@ python3 motion_test.py
 ```
 
 If python is missing dependencies then run this installation script that will download the necessary pip dependencies
+- CPU
 ``` bash
 chmod 777 /root/catkin_ws/shared/install_requirements.sh && /root/catkin_ws/shared/install_requirements.sh
+```
+- GPU 
+``` bash
+chmod 777 /root/catkin_ws/shared/install_gpu_requirements.sh && /root/catkin_ws/shared/install_gpu_requirements.sh
 ```
 
 ### Building the image
@@ -49,15 +61,20 @@ To build from scratch run
 ``` bash
 xhost +local:root
 docker builder prune
-docker compose --profile cpu up --build -d
-docker exec -it arl_cpu_cont bash -c "source devel/setup.bash && bash"
+docker compose --profile cpu up --build -d  # or use --profile gpu
+docker exec -it arl_cpu_cont bash -c "source devel/setup.bash && bash" # arl_gpu_cont
 ```
 
 Now only the pip dependencies need to be installed if they are missing
+- CPU
 ``` bash
 chmod 777 /root/catkin_ws/shared/install_requirements.sh && /root/catkin_ws/shared/install_requirements.sh
 ```
+- GPU
 
+``` bash
+chmod 777 /root/catkin_ws/shared/install_gpu_requirements.sh && /root/catkin_ws/shared/install_gpu_requirements.sh
+```
 
 ## Usage
 ### Starting and Stopping the Docker Container
@@ -67,13 +84,23 @@ xhost +local:root
 ```
 
 After the Installation the container can be restarted with
+- cpu
 ``` bash
-docker compose --profile cpu start
+docker compose --profile cpu start 
+```
+- GPU
+``` bash
+docker compose --profile gpu start
 ```
 
 Create a new terminal inside the container
+- CPU
 ``` bash
 docker exec -it arl_cpu_cont bash -c "source devel/setup.bash && cd /root/catkin_ws/shared && bash"
+```
+- GPU
+``` bash
+docker exec -it arl_gpu_cont bash -c "source devel/setup.bash && cd /root/catkin_ws/shared && bash"
 ```
 
 Open terminator inside the container (will be installed with install_requirements.sh). Then you dont have to do docker exec for each new terminal window.
@@ -81,9 +108,14 @@ Open terminator inside the container (will be installed with install_requirement
 terminator
 ```
 
-The container can be stopped with 
+The container can be stopped with
+- CPU
 ``` bash
 docker stop arl_cpu_cont 
+```
+- GPU
+``` bash
+docker stop arl_gpu_cont 
 ```
 
 ### Running in Simulation (om_6dof_controller)
