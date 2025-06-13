@@ -159,4 +159,16 @@ If you’re unable to access or work with the real robot, a simulation environme
    python3 move_to_home.py 
    ```
 
+#### ROS Startup Issues
+
+If you encounter problems starting ROS (e.g., `roscore` fails with a network error like `Unable to contact my own server`), it's usually due to networking or hostname resolution issues.
+
+To fix this, try setting the following environment variables **before starting `roscore`**:
+
+```bash
+export ROS_IP=127.0.0.1
+export ROS_MASTER_URI=http://127.0.0.1:11311
+```
+
+
 

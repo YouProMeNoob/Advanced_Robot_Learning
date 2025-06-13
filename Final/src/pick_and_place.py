@@ -377,7 +377,7 @@ def get_cube_position(cube_name, timeout=5.0):
         return None
 
 def execute_motion(dmp_gen, bag_path, dmp_save_path, cube_name, position_offset, publisher, 
-                  motion_name="motion", execute_time_factor=5, visualize=False):
+                  cube_position=None, motion_name="motion", execute_time_factor=5, visualize=False):
     """Execute a motion (pick or place) with given parameters"""
     print(f"\n=== Executing {motion_name} motion ===")
     
@@ -393,7 +393,10 @@ def execute_motion(dmp_gen, bag_path, dmp_save_path, cube_name, position_offset,
     print(f"{motion_name.capitalize()} DMP saved to: {dmp_save_path}")
     
     # Get target position
-    cube_position = get_cube_position(cube_name)
+    if cube_position is None:
+        print(f"get_cube_position")
+        cube_position = get_cube_position(cube_name)
+
     if cube_position is None:
         print(f"Failed to get {cube_name} position. Using default offset.")
         cube_position = [0.0, 0.0, 0.0]

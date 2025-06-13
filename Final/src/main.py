@@ -1,83 +1,9 @@
 import time
 import math
+import re
+import rospy
 
-from pick_and_place import get_cube_position
-
-def pick_place():
-    print("=== Starting Pick and Place Operation ===")
-    
-    try:
-        # Initialize components
-        dmp_gen = DMPMotionGenerator(
-            urdf_path, 
-            mesh_path,
-            base_link="world"
-        )
-        
-        publisher = GazeboTrajectoryPublisher()
-        rospy.sleep(2.0)
-        
-        # 1. PICK MOTION - Blue Cube
-        success = execute_motion(
-            dmp_gen=dmp_gen,
-            bag_path=pick_bag_path,
-            dmp_save_path=pick_dmp_path,
-            cube_name="blue_cube",
-            position_offset=[0.0, 0.0, 0.01],  # Slight offset above cube
-            publisher=publisher,
-            motion_name="pick",
-            execute_time_factor=5,
-            visualize=False  # Set to False to skip visualization
-        )
-        
-        if not success:
-            print("Pick motion failed!")
-            exit(1)
-        
-        # 2. RETURN TO HOME
-        print("\n=== Returning to Home Position ===")
-        publisher.publish_home_position(
-            home_position=home_position,
-            execution_time=5.0
-        )
-        print("[Home] Waiting for home position...")
-        rospy.sleep(7.0)  # Wait for home position completion
-        print("[Home] Home position reached!")
-        
-        # 3. PLACE MOTION - Green Cube
-        success = execute_motion(
-            dmp_gen=dmp_gen,
-            bag_path=place_bag_path,
-            dmp_save_path=place_dmp_path,
-            cube_name="green_cube",
-            position_offset=[0.0, 0.0, 0.07],  # Offset above green cube for placing
-            publisher=publisher,
-            motion_name="place",
-            execute_time_factor=5,
-            visualize=False  # Set to True if you want to visualize
-        )
-        
-        if not success:
-            print("Place motion failed!")
-            exit(1)
-        
-        # 4. FINAL RETURN TO HOME
-        print("\n=== Final Return to Home Position ===")
-        publisher.publish_home_position(
-            home_position=home_position,
-            execution_time=5.0
-        )
-        print("[Final] Returning to home position...")
-        rospy.sleep(7.0)
-        
-        print("\n=== Pick and Place Operation Completed Successfully! ===")
-        
-    except rospy.ROSInterruptException:
-        print("[Main] ROS interrupted.")
-    except Exception as e:
-        print(f"[Main] Error during pick and place operation: {e}")
-        import traceback
-        traceback.print_exc()
+from pick_and_place import DMPMotionGenerator, GazeboTrajectoryPublisher, execute_motion, get_cube_position
 
 def distance(pos1, pos2):
     return math.sqrt(
@@ -92,6 +18,7 @@ class Cube():
         self.value = value
         self.position = [0,0,0]
 
+
 class Rod():
     def __init__(self, name, value):
         self.name = name
@@ -101,16 +28,26 @@ class Rod():
     def sort_stack(self):
         self.cubes.sort(key=lambda cube: cube.position[2])
 
+class Movement():
+    def __init__(self, cube: Cube, start_rod: Rod,end_rod: Rod):
+        self.cube      = cube
+        self.start_rod = start_rod
+        self.end_rod   = end_rod
+
 class TowerOfHanoi():
     def __init__(self):
         self.rods = {}
         self.cubes = {}
+        self.movements = []
     
     def addCube(self, cube: Cube):
         self.cubes[cube.value] = cube
 
     def addRod(self, rod: Rod):
         self.rods[rod.name] = rod
+
+    def addMovement(self, Movement: Movement):
+        self.movements.append(Movement)
 
     def getRodNames(self):
         return [rod for rod in self.rods]
@@ -146,10 +83,141 @@ class TowerOfHanoi():
         for rod in self.rods.values():
             rod.sort_stack()
 
+    def execute_movements(self):
+        for m in self.movements:
+
+            if len(m.end_rod.cubes) == 0: # no cube on rod
+                debug_target = f"empty rod"
+            else:
+                goal_cube = m.end_rod.cubes[-1].name # 
+                debug_target = f"on top of {goal_cube}"
+
+            print(f"Moving {m.cube.name} to rod {m.end_rod.name} ({debug_target})")
+            pick_place(m.cube, m.start_rod, m.end_rod)
         
 
 def wait_for_user():
     input("Press Enter to continue...\n")
+
+def parse_response(text, tower: TowerOfHanoi):
+    matches = re.findall(r'MD(\d)([ABC])([ABC])', text)
+
+    for disk_str, start, end in matches:
+        disk = int(disk_str)
+
+        cube = tower.cubes.get(disk)
+        if not cube:
+            raise ValueError(f"No cube defined for cube number {disk}!")
+
+        for rod_name in (start, end):
+            if rod_name not in tower.rods:
+                raise ValueError(f"No Rod defined for Rod Name {rod_name}!")
+
+        start_rod = tower.rods.get(start)
+        end_rod   = tower.rods.get(end)
+
+        movement = Movement(cube=cube, start_rod=start_rod, end_rod=end_rod)
+        tower.addMovement(movement)
+
+def pick_place( cube: Cube, start_rod: Rod, end_rod: Rod):
+    print("=== Starting Pick and Place Operation ===")
+    
+
+    try:
+        
+        if cube is None:
+            print("cube = None!")
+            exit(1)
+
+        if start_rod is None:
+            print("cube = None!")
+            exit(1)
+
+        if end_rod is None:
+            print("end_rod = None!")
+            exit(1)
+
+        # TODO change value based on block hight 
+        offset_pick = (len(start_rod.cubes)-1)/10
+        offset_place = (len(end_rod.cubes)-1)/10
+
+
+        # Initialize components
+        dmp_gen = DMPMotionGenerator(
+            urdf_path, 
+            mesh_path,
+            base_link="world"
+        )
+        
+        publisher = GazeboTrajectoryPublisher()
+        rospy.sleep(2.0)
+    
+
+        
+
+        # 1. PICK MOTION - Blue Cube
+        success = execute_motion(
+            dmp_gen=dmp_gen,
+            bag_path=pick_bag_path,
+            dmp_save_path=pick_dmp_path,
+            cube_name=cube.name,
+            position_offset=[0.0, 0.0, offset_pick],  # Slight offset above cube TODO offset
+            publisher=publisher,
+            motion_name="pick",
+            execute_time_factor=5,
+            visualize=False,  # Set to False to skip visualization
+            cube_position=None
+        )
+        
+        if not success:
+            print("Pick motion failed!")
+            exit(1)
+        
+        # 2. RETURN TO HOME
+        print("\n=== Returning to Home Position ===")
+        publisher.publish_home_position(
+            home_position=home_position,
+            execution_time=5.0
+        )
+        print("[Home] Waiting for home position...")
+        rospy.sleep(7.0)  # Wait for home position completion
+        print("[Home] Home position reached!")
+        
+        # 3. PLACE MOTION - Green Cube
+        success = execute_motion(
+            dmp_gen=dmp_gen,
+            bag_path=place_bag_path,
+            dmp_save_path=place_dmp_path,
+            cube_name=None,
+            position_offset=[0.0, 0.0, offset_place],  # Offset above green cube for placing
+            publisher=publisher,
+            motion_name="place",
+            execute_time_factor=5,
+            visualize=False,  # Set to True if you want to visualize
+            cube_position=end_rod.position
+        )
+        
+        if not success:
+            print("Place motion failed!")
+            exit(1)
+        
+        # 4. FINAL RETURN TO HOME
+        print("\n=== Final Return to Home Position ===")
+        publisher.publish_home_position(
+            home_position=home_position,
+            execution_time=5.0
+        )
+        print("[Final] Returning to home position...")
+        rospy.sleep(7.0)
+        
+        print("\n=== Pick and Place Operation Completed Successfully! ===")
+        
+    except rospy.ROSInterruptException:
+        print("[Main] ROS interrupted.")
+    except Exception as e:
+        print(f"[Main] Error during pick and place operation: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 if __name__ == "__main__":
@@ -215,5 +283,19 @@ if __name__ == "__main__":
         else:
             print(f"Rod {rod.name}: []") 
     
+    text = """
+    1. MD1AB  
+    2. MD2BC  
+    """
 
+    parse_response(text, toh)
+    
+    for m in toh.movements:
+        print(f"Move cube from {m.cube.name} to {m.end_rod.name}")
+        if len(m.end_rod.cubes) == 0:
+            print(f"position {m.end_rod.position} ")
+        else:
+            print(f"Name {m.end_rod.cubes[-1].name} ")
+
+    toh.execute_movements()
 
