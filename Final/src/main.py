@@ -284,8 +284,8 @@ if __name__ == "__main__":
             print(f"Rod {rod.name}: []") 
     
     text = """
-    1. MD1AB  
-    2. MD2BC  
+    1. MD2BC  
+    2. MD1AB  
     """
 
     parse_response(text, toh)

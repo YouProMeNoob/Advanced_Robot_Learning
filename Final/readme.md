@@ -16,9 +16,9 @@ Download the `om_noetic_v2.tar` from TUWEL or use an existing image. If you down
 docker load -i om_noetic_v2.tar
 ```
 
-Otherwise, make sure the image is named om_noetic_v2:latest. If it is not then run this command to give the image a name and tag:
+Otherwise, make sure the image is named om_noetic_v2:gpu or om_noetic_v2:cpu. If it is not then run this command to give the image a name and tag:
 ``` bash
-docker tag <existing-image-id or name> om_noetic_v2:latest
+docker tag <existing-image-id or name> om_noetic_v2:cpu
 ```
 
 Once you have an image then you need to run docker compose to create a container from the image and then use docker exec to start an interactive session inside the container.
@@ -61,8 +61,17 @@ To build from scratch run
 ``` bash
 xhost +local:root
 docker builder prune
-docker compose --profile cpu up --build -d  # or use --profile gpu
-docker exec -it arl_cpu_cont bash -c "source devel/setup.bash && bash" # arl_gpu_cont
+```
+
+- CPU
+``` bash
+docker compose --profile cpu up --build -d
+docker exec -it arl_cpu_cont bash -c "source devel/setup.bash && bash"
+```
+- GPU
+``` bash
+docker compose --profile gpu up --build -d
+docker exec -it arl_gpu_cont bash -c "source devel/setup.bash && bash"
 ```
 
 Now only the pip dependencies need to be installed if they are missing

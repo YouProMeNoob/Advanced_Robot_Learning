@@ -1,6 +1,6 @@
 services:
   cpu:
-    image: om_noetic_v2:latest
+    image: om_noetic_v2:cpu
     container_name: arl_cpu_cont
     build:
       context: .
@@ -26,11 +26,11 @@ services:
       - cpu
 
   gpu:
-    image: om_noetic_v2:latest
+    image: om_noetic_v2:gpu
     container_name: arl_gpu_cont
     build:
       context: .
-      dockerfile: cpu.Dockerfile
+      dockerfile: gpu.Dockerfile
     privileged: true
     network_mode: host
     runtime: nvidia
