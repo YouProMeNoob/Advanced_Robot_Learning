@@ -414,7 +414,7 @@ def execute_motion(dmp_gen, bag_path, dmp_save_path, cube_name, position_offset,
     
     # Compute IK
     trajectory, IK_joint_trajectory, gripper_traj, T = dmp_gen.compute_IK_trajectory(
-        trajectory, T, subsample_factor=1)
+        trajectory, T, subsample_factor=10)
     
     # Apply smoothing
     window_size = 25
