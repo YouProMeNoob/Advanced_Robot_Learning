@@ -138,7 +138,7 @@ def pick_place( cube: Cube, start_rod: Rod, end_rod: Rod, return_home:bool = Fal
             exit(1)
 
         offset_pick = 0.02 #(len(start_rod.cubes)-1)/10
-        offset_place = 0.01 #(len(end_rod.cubes)-1)/10
+        offset_place = 0.01 + (len(end_rod.cubes)) *0.04
 
         # TODO maybe adjust boundaries
         left_boundary = 0.04
@@ -269,25 +269,34 @@ if __name__ == "__main__":
     toh.addCube(Cube('green_cube',3))
 
     print("\n\n=============== Mark Rod Positions ===============\n")
-    print("Please mark the rod positions with the cubes \n")
-    print("The smallest cube value correspods to the position of rod 'A', the second 'B' and so on... \n")
-    wait_for_user()
-    toh.init_cubes()
+    while True:
+        choice = input("Do you want to choose Rod Positions (y/n): ").strip().lower()
+        if choice == 'y':
+            print("Please mark the rod positions with the cubes \n")
+            print("The smallest cube value correspods to the position of rod 'A', the second 'B' and so on... \n")
+            wait_for_user()
+            toh.init_cubes()
 
-    #TODO for debugging set defined positions remove afterwards
-    """
-    toh.addRod(Rod('A', toh.cubes[1].position))
-    toh.addRod(Rod('B', toh.cubes[2].position))
-    toh.addRod(Rod('C', toh.cubes[3].position))
-    """
-    peg_positions = {
-        "A": [0.16, 0.11, 0.05],
-        "B": [0.18, 0.0, 0.05],
-        "C": [0.16, -0.11, 0.05]
-    }
-    toh.addRod(Rod('A', peg_positions["A"]))
-    toh.addRod(Rod('B', peg_positions["B"]))
-    toh.addRod(Rod('C', peg_positions["C"]))
+            toh.addRod(Rod('A', toh.cubes[1].position))
+            toh.addRod(Rod('B', toh.cubes[2].position))
+            toh.addRod(Rod('C', toh.cubes[3].position))
+            break
+
+        elif choice == 'n':
+            print("Using default rod positions. \n")
+            toh.init_cubes()
+            peg_positions = {
+                "A": [0.16, 0.11, 0.05],
+                "B": [0.18, 0.0, 0.05],
+                "C": [0.16, -0.11, 0.05]
+            }
+            toh.addRod(Rod('A', peg_positions["A"]))
+            toh.addRod(Rod('B', peg_positions["B"]))
+            toh.addRod(Rod('C', peg_positions["C"]))
+            break
+
+        else:
+            print("Invalid input. Try again.\n")
 
     print("\n\nSet rod positions to:\n")
     toh.printRodPositions()
@@ -320,8 +329,7 @@ if __name__ == "__main__":
             print(f"Rod {rod.name}: []") 
     
     text = """
-    1. MD1AB  
-    2. MD2AC  
+    1. MD1AC   
     """
 
     parse_response(text, toh)
