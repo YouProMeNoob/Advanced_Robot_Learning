@@ -5,6 +5,8 @@ import rospy
 
 from pick_and_place_V2 import DMPMotionGenerator, GazeboTrajectoryPublisher, execute_motion, get_cube_position
 
+from chatgpt_call import ask_llm
+
 def distance(pos1, pos2):
     return math.sqrt(
         (pos2[0] - pos1[0])**2 +
@@ -66,6 +68,10 @@ class TowerOfHanoi():
             cube.position = get_cube_position(cube.name, timeout=0.5)
 
     def assign_cubes_to_rods(self):
+        
+        for rod in self.rods.values():
+            rod.cubes.clear()
+
         # find closest rod
         for cube in self.cubes.values():
             cube.position = get_cube_position(cube.name, timeout=0.5)
@@ -82,6 +88,7 @@ class TowerOfHanoi():
 
         for rod in self.rods.values():
             rod.sort_stack()
+        
 
     def execute_movements(self):
         for i, m in enumerate(self.movements):
@@ -94,6 +101,15 @@ class TowerOfHanoi():
 
             print(f"Moving {m.cube.name} to rod {m.end_rod.name} ({debug_target})")
             pick_place(m.cube, m.start_rod, m.end_rod, return_home=(i==0))
+
+    def print_movements(self):
+        for m in self.movements:
+            print(f"Move {m.cube.name} from {m.start_rod.name} to {m.end_rod.name}")
+            if len(m.end_rod.cubes) == 0:
+                print(f"position {m.end_rod.position} ")
+            else:
+                print(f"Name {m.end_rod.cubes[-1].name} ")
+
         
 
 def wait_for_user():
@@ -243,6 +259,49 @@ def pick_place( cube: Cube, start_rod: Rod, end_rod: Rod, return_home:bool = Fal
         import traceback
         traceback.print_exc()
 
+def get_problem_description(toh: TowerOfHanoi, target_rod_name):
+    num_disks = len(toh.cubes)
+
+    result = "### Current Problem:\n"
+    result += f"- Number of Disks: {num_disks}\n"
+    result += "- Starting State (bottom disk first, top disk last):\n"
+
+    for rod_name in sorted(toh.rods.keys()): 
+        rod = toh.rods[rod_name]
+        disk_values = [cube.value for cube in rod.cubes]
+        result += f"    Rod {rod.name}: {disk_values}\n"
+
+    
+    result += "- Target State:\n"
+    for rod_name in sorted(toh.rods.keys()):
+        if rod_name == target_rod_name:
+            # Target rod gets all disks, largest on bottom
+            target_stack = list(range(num_disks, 0, -1))
+            result += f"    Rod {rod_name}: {target_stack}\n"
+        else:
+            result += f"    Rod {rod_name}: []\n"
+
+    return result
+
+
+def get_yes_no(prompt, default="n"):
+    """Prompt for yes/no input with optional default."""
+    while True:
+        choice = input(f"{prompt} ").strip().lower()
+        if choice in {"y", "n", ""}:
+            return choice if choice else default
+        print("Invalid input. Please enter 'y' or 'n'.")
+
+def get_valid_input(prompt, valid_values, to_upper=False):
+    """Prompt until input is in valid_values."""
+    while True:
+        value = input(prompt).strip()
+        if to_upper:
+            value = value.upper()
+        if value in valid_values:
+            return value
+        print(f"Invalid input. Please enter one of: {', '.join(valid_values)}.")
+
 
 if __name__ == "__main__":
     # Configuration
@@ -301,45 +360,68 @@ if __name__ == "__main__":
     print("\n\nSet rod positions to:\n")
     toh.printRodPositions()
     
+
     # Wait for User to Build Towers
     print("\n\n=============== Set Starting Position ===============\n")
-    print("Please build the starting position and then enter a target rod for the final tower.\n")
-    targetRod = None
+    print("\nPlease build the starting position.")
+    input("press Enter to continue")
 
+    movements = ""
     while True:
-        target_rod = input(f"Enter target rod {toh.getRodNames()}:")
-        if target_rod in toh.getRodNames():
+        toh.assign_cubes_to_rods()
+        use_llm = get_yes_no("Do you want to use the LLM (y/N):", default="n")
+
+        if use_llm == 'y':
+            print("\nPlease enter a target rod for the final tower.")
+            
+            target_rod = get_valid_input(
+                f"Enter target rod {toh.getRodNames()}: ",
+                toh.getRodNames(),to_upper=True
+            )
             print(f"Selected Target Rod: {target_rod}")
+
+            prompt = get_problem_description(toh, target_rod)
+            movements = ask_llm(prompt)
+            print(movements.output_text)
+            movements = movements.output_text
+            #TODO LLM
+           
+
+        else:
+            movements = ""
+            movements_count = 0
+            print("\nPlease input the movements you want to execute:\n")
+
+            while True:
+                
+                cube     = get_valid_input("Select cube (1, 2, 3): ", {"1", "2", "3"})
+                cube_rod = get_valid_input("Select cube rod (A, B, C): ", {"A", "B", "C"}, to_upper=True)
+                rod      = get_valid_input("Select rod (A, B, C): ", {"A", "B", "C"}, to_upper=True)
+
+                # todo chack wrong input
+
+                movements_count += 1
+
+                movements = movements + f"{movements_count}. MD{cube}{cube_rod}{rod}\n"
+                print(f"Movements so far:\n{movements}")
+
+                add_more = get_yes_no("Do you want to add one more movement? (y/N):", default="n")  
+
+                if add_more == 'n':
+                    break
+
+
+        print(f"\nFinal movements:\n{movements}")
+        
+        execute = get_yes_no("Do you want to execute these movements? (Y/n):", default="y")
+
+        if execute == "y":
+            print()
+            parse_response(movements, toh)
+            toh.print_movements()
+            movements = ""
+
+        exit_program = get_yes_no("\nDo you want to exit? (Y/n):", default="y")
+        if exit_program == "y":
             break
-        else:
-            print(f"Invalid Rod Name: {target_rod}. Try again!\n")
-    
-    toh.assign_cubes_to_rods()
-
-
-    #TODO implement LLM
-    print("\n\n=============== Task Description ===============\n")
-    print("Current State:")
-    toh.printRodStates()
-    print("\nTarget State:")
-    for rod in toh.rods.values():
-        if target_rod == rod.name:
-            print(f"Rod {rod.name}: [3, 2, 1]") 
-        else:
-            print(f"Rod {rod.name}: []") 
-    
-    text = """
-    1. MD1AC   
-    """
-
-    parse_response(text, toh)
-    
-    for m in toh.movements:
-        print(f"Move {m.cube.name} from {m.start_rod.name} to {m.end_rod.name}")
-        if len(m.end_rod.cubes) == 0:
-            print(f"position {m.end_rod.position} ")
-        else:
-            print(f"Name {m.end_rod.cubes[-1].name} ")
-
-    toh.execute_movements()
-
+            
