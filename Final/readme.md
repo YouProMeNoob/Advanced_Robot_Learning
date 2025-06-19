@@ -38,10 +38,12 @@ docker exec -it asl_om_toh_cont terminator
    roscore
    ```
 
-3. **Start the position controller (simulation mode):**
+2. **Start the position controller (simulation mode):**
    ```bash
    roslaunch om_position_controller position_control.launch sim:=true
    ```
+
+3. **Click the Play Button in Gazebo**
 
 4. **Start the republishing of the cube coordinates**
    ```bash 
@@ -49,23 +51,9 @@ docker exec -it asl_om_toh_cont terminator
    python3 4_rs_detect_sim.py 
    ```
 
-5. **(Optional)Visualise your recordings**
-   First play the rosbag and then execute this script
+5. **Execute the main script.**
    ```bash 
-   roscd om_position_controller/scripts && \
-   python3 simulated_trajectory.py
-   ```
-
-6. **Execute the pick_and_place script.**
-   ```bash 
-   roscd om_position_controller/scripts && \
-   python3 pick_and_place.py
-   ```
-
-7. **For going back to the home pose execute:**
-   ```bash 
-   roscd om_position_controller/scripts && \
-   python3 move_to_home.py 
+   cd /root/catkin_ws/shared && python3 main.py
    ```
 
 #### ROS Startup Issues

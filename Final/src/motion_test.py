@@ -15,7 +15,7 @@ import rosbag
 from tf.transformations import quaternion_matrix
 
 
-recording_path = '/root/catkin_ws/recordings/pick1.bag'
+recording_path = '/root/catkin_ws/src/recordings/pick_left11.bag'
 
 def animation_callback(step, graph, chain, joint_trajectory):
     chain.forward(joint_trajectory[step])

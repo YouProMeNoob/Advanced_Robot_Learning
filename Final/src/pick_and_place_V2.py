@@ -39,7 +39,7 @@ from sensor_msgs.msg import JointState
 import re
 
 current_script_dir = os.path.dirname(os.path.abspath(__file__))
-my_scripts_dir = os.path.dirname(os.path.dirname(current_script_dir))
+my_scripts_dir = "/root/catkin_ws/src/my_scripts"
 if my_scripts_dir not in sys.path:
     sys.path.insert(0, my_scripts_dir)
 # --- End Path Setup ---
@@ -793,7 +793,7 @@ def initialise_rag_system():
     # Define your sources directly in an array
     # Include a mix of local HTML files and web URLs as needed
     sources = [
-        "/workspace/Docker_volume/hanoi_tagged_solution_3_disks.html"
+        "/root/catkin_ws/src/my_scripts/assignment_3/Docker_volume/hanoi_tagged_solution_3_disks.html"
         # "https://www.geeksforgeeks.org/iterative-tower-of-hanoi/"  # Keeping the original source as well
     ]
     
