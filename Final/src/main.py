@@ -100,7 +100,7 @@ class TowerOfHanoi():
                 debug_target = f"on top of {goal_cube}"
 
             print(f"Moving {m.cube.name} to rod {m.end_rod.name} ({debug_target})")
-            pick_place(m.cube, m.start_rod, m.end_rod, return_home=(i==0))
+            pick_place(self, m.cube, m.start_rod, m.end_rod, return_home=(i==0))
 
             self.movements.remove(m)
 
@@ -137,7 +137,7 @@ def parse_response(text, tower: TowerOfHanoi):
         movement = Movement(cube=cube, start_rod=start_rod, end_rod=end_rod)
         tower.addMovement(movement)
 
-def pick_place( cube: Cube, start_rod: Rod, end_rod: Rod, return_home:bool = False):
+def pick_place(toh: TowerOfHanoi, cube: Cube, start_rod: Rod, end_rod: Rod, return_home:bool = False):
     print("=== Starting Pick and Place Operation ===")
     
 
@@ -155,8 +155,8 @@ def pick_place( cube: Cube, start_rod: Rod, end_rod: Rod, return_home:bool = Fal
             print("end_rod = None!")
             exit(1)
 
-        offset_pick = 0.02 #(len(start_rod.cubes)-1)/10
-        offset_place = 0.01 + (len(end_rod.cubes)) *0.04
+        offset_pick = 0.02 # + len(toh.rods[start_rod.name].cubes) * 0.01
+        offset_place = 0.01 + len(toh.rods[end_rod.name].cubes) * 0.04
 
         # TODO maybe adjust boundaries
         left_boundary = 0.04
