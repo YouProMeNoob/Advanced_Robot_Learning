@@ -1,4 +1,5 @@
-from openai import OpenAI 
+import sys
+from openai import OpenAI
 
 def ask_llm(query):
     """
@@ -10,8 +11,13 @@ def ask_llm(query):
     Returns:
         str: The model's response
     """
-    client = OpenAI(api_key="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")
+    api_key = None
 
+    if api_key == None:
+        print("No API Key. You can contact Dominic Khang for an API Key.\n")
+        sys.exit(1)
+    else:
+        client = OpenAI(api_key=api_key)
     prompt = """
     You are a mathematical reasoning assistant specialized in solving the Tower of Hanoi puzzle using a tagged move format.
 

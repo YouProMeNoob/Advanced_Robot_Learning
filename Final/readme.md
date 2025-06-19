@@ -1,7 +1,7 @@
 # Advanced Robot Learning - Final Project
 
 ## Authors: Group 2
-- Dominic Khang 12012414
+- Dominic Khang
 - Ryan Lee
 - Dominik Pusztai
 - Pascal Zoehrer 
