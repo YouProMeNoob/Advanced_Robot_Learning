@@ -83,7 +83,7 @@ if __name__ == "__main__":
     - Only one disk may be moved at a time.
     - Each move consists of taking the upper disk from one of the stacks and placing it on top of another stack or on an empty rod.
     - A larger disk may not be placed on top of a smaller one.
-    - If a starting state is against the rules then you can still move the upper disk away or place a disk ontop if it is smaller.
+    - If a starting state is against the rules then you can still move the upper disk away to an empty rod or place a disk ontop if it is smaller.
 
     # Move Tag Format:
     Each move is formatted as:
@@ -103,7 +103,7 @@ if __name__ == "__main__":
     ### Current Problem:
     - Number of Disks: 3
     - Starting State (bottom disk first, top disk last):
-        Rod A: [1,2,3]
+        Rod A: [3, 1, 2]
         Rod B: []
         Rod C: []
     - Target State:
