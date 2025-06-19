@@ -50,6 +50,27 @@ services:
     profiles:
       - gpu
 
+  toh_update:
+    image: asl_om_toh:1
+    container_name: asl_om_toh_cont
+    privileged: true
+    network_mode: host
+    runtime: nvidia
+    environment:
+      - DISPLAY=${DISPLAY}
+      - XAUTHORITY=/root/.Xauthority-host
+      - QT_X11_NO_MITSHM=1
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - $HOME/.Xauthority:/root/.Xauthority-host:rw
+      - /dev:/dev
+      - ./src:/root/catkin_ws/shared:rw
+      - ./recordings_final:/root/catkin_ws/recordings:rw
+    stdin_open: true
+    tty: true
+    profiles:
+      - toh_update
 
   #sudo apt-get update
   #sudo apt-get install docker-compose-plugin

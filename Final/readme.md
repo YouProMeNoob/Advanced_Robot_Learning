@@ -8,166 +8,34 @@
 
 ## Installation
 
-Installation can be done by either using an existing image that you know works or by building the docker image from scratch using the `cpu.Dockerfile`. After going through one of the installation methods refer to the commands listed in **Usage** to preserve your container state.
+Installation can be only be done by downloading the existing image from TUWEL. After going through one of the installation refer to the commands listed in **Usage** to preserve your container state.
 
 ### Using an existing image
-Download the `om_noetic_v2.tar` from TUWEL or use an existing image. If you downloaded the TUWEL image then run 
-``` bash
-docker load -i om_noetic_v2.tar
-```
-
-Otherwise, make sure the image is named om_noetic_v2:gpu or om_noetic_v2:cpu. If it is not then run this command to give the image a name and tag:
-``` bash
-docker tag <existing-image-id or name> om_noetic_v2:cpu
-```
-
-Once you have an image then you need to run docker compose to create a container from the image and then use docker exec to start an interactive session inside the container.
-- cpu
 ``` bash
 xhost +local:root
-docker compose --profile cpu up -d
-docker exec -it arl_cpu_cont bash -c "source devel/setup.bash && bash"
+docker compose --profile toh_update up -d
+docker exec -it asl_om_toh_cont bash
 ```
-- GPU
+Inside the container run
 ``` bash
-xhost +local:root
-docker compose --profile gpu up -d
-docker exec -it arl_gpu_cont bash -c "source devel/setup.bash && bash"
-```
-
-It is very likely that your `catkin_ws/src` is outdated! Use this script that will download the latest commit from github and will run `catkin_make` for you
-``` bash
-chmod 777 /root/catkin_ws/shared/update_noetic.sh && /root/catkin_ws/shared/update_noetic.sh
-```
-
-You can try runnning
-``` bash
-cd /root/catkin_ws/shared
-python3 motion_test.py
-```
-
-If python is missing dependencies then run this installation script that will download the necessary pip dependencies
-- CPU
-``` bash
-chmod 777 /root/catkin_ws/shared/install_requirements.sh && /root/catkin_ws/shared/install_requirements.sh
-```
-- GPU 
-``` bash
-chmod 777 /root/catkin_ws/shared/install_gpu_requirements.sh && /root/catkin_ws/shared/install_gpu_requirements.sh
-```
-
-### Building the image
-To build from scratch run
-``` bash
-xhost +local:root
-docker builder prune
-```
-
-- CPU
-``` bash
-docker compose --profile cpu up --build -d
-docker exec -it arl_cpu_cont bash -c "source devel/setup.bash && bash"
-```
-- GPU
-``` bash
-docker compose --profile gpu up --build -d
-docker exec -it arl_gpu_cont bash -c "source devel/setup.bash && bash"
-```
-
-Now only the pip dependencies need to be installed if they are missing
-- CPU
-``` bash
-chmod 777 /root/catkin_ws/shared/install_requirements.sh && /root/catkin_ws/shared/install_requirements.sh
-```
-- GPU
-
-``` bash
-chmod 777 /root/catkin_ws/shared/install_gpu_requirements.sh && /root/catkin_ws/shared/install_gpu_requirements.sh
-```
-
-## Usage
-### Starting and Stopping the Docker Container
-Give permission to access X-Server
-``` bash
-xhost +local:root
-```
-
-After the Installation the container can be restarted with
-- cpu
-``` bash
-docker compose --profile cpu start 
-```
-- GPU
-``` bash
-docker compose --profile gpu start
-```
-
-Create a new terminal inside the container
-- CPU
-``` bash
-docker exec -it arl_cpu_cont bash -c "source devel/setup.bash && cd /root/catkin_ws/shared && bash"
-```
-- GPU
-``` bash
-docker exec -it arl_gpu_cont bash -c "source devel/setup.bash && cd /root/catkin_ws/shared && bash"
-```
-
-Open terminator inside the container (will be installed with install_requirements.sh). Then you dont have to do docker exec for each new terminal window.
-``` bash
-terminator
+chmod 777 /root/catkin_ws/shared/toh_update_bash.sh && /root/catkin_ws/shared/toh_update_bash.sh && source ~/.bashrc
 ```
 
 The container can be stopped with
-- CPU
 ``` bash
-docker stop arl_cpu_cont 
-```
-- GPU
-``` bash
-docker stop arl_gpu_cont 
+docker stop asl_om_toh_cont
 ```
 
-### Running in Simulation (om_6dof_controller)
-This shows the deployment of the base controller (build by the team of Robotis)
-1. **Start ROS master** in one terminal:
-   ```bash
-   roscore
-   ```
-
-2. **Launch the controller** in a new terminal:
-   ```bash
-   roslaunch open_manipulator_6dof_controller open_manipulator_6dof_controller.launch use_platform:=false
-   ```
-
-3. **Launch Gazebo simulation** in another terminal:
-
-    **Important** Change Line 30 in `/root/catkin_ws/src/open_manipulator_6dof_simulations/open_manipulator_6dof_gazebo/launch/open_manipulator_6dof_gazebo.launch` to:  
-    ```
-    args="-urdf -model open_manipulator_6dof -z 0.0 -param robot_description -x 0.0 -y 0.0 -z 0.0 -R 0.0 -P 0.0 -Y 0.0 -J joint1 0.0 -J joint2 -0.78 -J joint3 1.5 -J joint4 0.0 -J joint5 0.8 -J joint6 0.0"/>
-    ```
-    otherwise you will not see the robot arm.
-
-    Then you can launch
-    ```bash
-    roslaunch open_manipulator_6dof_gazebo open_manipulator_6dof_gazebo.launch controller:=position
-    ```
-
-4. **Launch the GUI control panel**:
-   ```bash
-   roslaunch open_manipulator_6dof_control_gui open_manipulator_6dof_control_gui.launch
-   ```
-
-### Running in Simulation (om_position_controller)
-If you’re unable to access or work with the real robot, a simulation environment is provided via the `om_position_controller` package. Follow these steps:
+## Usage
+``` bash
+xhost +local:root
+docker compose --profile toh_update start
+docker exec -it asl_om_toh_cont terminator
+```
 
 1. **Start ROS master** in one terminal:
    ```bash
    roscore
-   ```
-
-2. **Launch the controller** in a new terminal:
-   ```bash
-   roslaunch open_manipulator_6dof_controller open_manipulator_6dof_controller.launch use_platform:=false
    ```
 
 3. **Start the position controller (simulation mode):**
