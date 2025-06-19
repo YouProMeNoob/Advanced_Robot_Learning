@@ -91,7 +91,7 @@ class TowerOfHanoi():
         
 
     def execute_movements(self):
-        for i, m in enumerate(self.movements):
+        for i, m in enumerate(self.movements[:]):
 
             if len(m.end_rod.cubes) == 0: # no cube on rod
                 debug_target = f"empty rod"
@@ -101,6 +101,8 @@ class TowerOfHanoi():
 
             print(f"Moving {m.cube.name} to rod {m.end_rod.name} ({debug_target})")
             pick_place(m.cube, m.start_rod, m.end_rod, return_home=(i==0))
+
+            self.movements.remove(m)
 
     def print_movements(self):
         for m in self.movements:
@@ -418,10 +420,11 @@ if __name__ == "__main__":
         if execute == "y":
             print()
             parse_response(movements, toh)
-            toh.print_movements()
+            toh.execute_movements()
             movements = ""
 
         exit_program = get_yes_no("\nDo you want to exit? (Y/n):", default="y")
         if exit_program == "y":
             break
             
+
