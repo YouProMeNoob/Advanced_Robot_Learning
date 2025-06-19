@@ -388,29 +388,44 @@ if __name__ == "__main__":
             movements = movements.output_text
             #TODO LLM
            
-
         else:
-            movements = ""
-            movements_count = 0
-            print("\nPlease input the movements you want to execute:\n")
+            use_default_manual = get_yes_no("Do you want to use the fixed default manual sequence? (y/N):", default="n")
+            
+            if use_default_manual == 'y':
+                print("\nUsing default manual Tower of Hanoi sequence.")
+                movements = (
+                    "1. MD1AC\n"
+                    "2. MD2AB\n"
+                    "3. MD1CB\n"
+                    "4. MD3AC\n"
+                    "5. MD1BA\n"
+                    "6. MD2BC\n"
+                    "7. MD1AC"
+                )
+                print(f"\nDefault sequence:\n{movements}")
 
-            while True:
-                
-                cube     = get_valid_input("Select cube (1, 2, 3): ", {"1", "2", "3"})
-                cube_rod = get_valid_input("Select cube rod (A, B, C): ", {"A", "B", "C"}, to_upper=True)
-                rod      = get_valid_input("Select rod (A, B, C): ", {"A", "B", "C"}, to_upper=True)
+            else:
+                movements = ""
+                movements_count = 0
+                print("\nPlease input the movements you want to execute:\n")
 
-                # todo chack wrong input
+                while True:
+                    
+                    cube     = get_valid_input("Select cube (1, 2, 3): ", {"1", "2", "3"})
+                    cube_rod = get_valid_input("Select cube rod (A, B, C): ", {"A", "B", "C"}, to_upper=True)
+                    rod      = get_valid_input("Select rod (A, B, C): ", {"A", "B", "C"}, to_upper=True)
 
-                movements_count += 1
+                    # todo chack wrong input
 
-                movements = movements + f"{movements_count}. MD{cube}{cube_rod}{rod}\n"
-                print(f"Movements so far:\n{movements}")
+                    movements_count += 1
 
-                add_more = get_yes_no("Do you want to add one more movement? (y/N):", default="n")  
+                    movements = movements + f"{movements_count}. MD{cube}{cube_rod}{rod}\n"
+                    print(f"Movements so far:\n{movements}")
 
-                if add_more == 'n':
-                    break
+                    add_more = get_yes_no("Do you want to add one more movement? (y/N):", default="n")  
+
+                    if add_more == 'n':
+                        break
 
 
         print(f"\nFinal movements:\n{movements}")
