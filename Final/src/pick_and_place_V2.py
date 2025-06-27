@@ -361,6 +361,168 @@ class DMPMotionGenerator:
         fig.show()
 
 
+class RealRobotTrajectoryPublisher:
+    def __init__(self, joint_names=None, gripper_joint_names=None):
+        if not rospy.core.is_initialized():
+            rospy.init_node("gazebo_trajectory_publisher", anonymous=True)
+        
+        self.joint_names = joint_names or ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6", "gripper"]
+        # self.gripper_joint_names = gripper_joint_names or ["gripper", "gripper_sub"]
+        
+        # self.arm_pub = rospy.Publisher('/open_manipulator_6dof/arm_controller/command', 
+        #                              JointTrajectory, queue_size=10)
+        # self.gripper_pub = rospy.Publisher('/open_manipulator_6dof/gripper_controller/command', 
+        #                                  JointTrajectory, queue_size=10)
+        self.joint_pub = rospy.Publisher('/gravity_compensation_controller/traj_joint_states', JointState, queue_size=10)
+
+        # Subscriber
+        self.joint_state_topic = '/joint_states'
+        self._latest_joint_data = {
+            "name": [],
+            "position": [],
+            "velocity": [],
+            "effort": []
+        }
+        self._joint_state_lock = threading.Lock()
+        try:
+            self.joint_state_subscriber = rospy.Subscriber(
+                self.joint_state_topic,
+                JointState,
+                self._joint_state_callback,
+                queue_size=1 # Process most recent message
+            )
+            rospy.loginfo(f"[ROS Handler] Subscribed to joint states on '{self.joint_state_topic}'")
+        except Exception as e:
+            rospy.logerr(f"[ROS Handler] Failed to subscribe to {self.joint_state_topic}: {e}")
+            self.joint_state_subscriber = None
+
+
+        print(f"[Gazebo] Initialized publisher:")
+        print(f"  - Robot: /gravity_compensation_controller/traj_joint_states")
+        
+        rospy.sleep(1.0)
+
+    def publish_trajectory(self, joint_trajectory, gripper_trajectory, timestamps, execute_time_factor=1.0):
+        if len(joint_trajectory) == 0:
+            rospy.logwarn("Empty trajectory provided")
+            return
+        
+        print(f"Publishing trajectory with {len(joint_trajectory)} points")
+        
+        for i in range(len(joint_trajectory)):
+            arm_msg = JointState()
+            arm_msg.header.stamp = rospy.Time.now()
+            arm_msg.name = self.joint_names
+            arm_msg.position = joint_trajectory[i].tolist()
+            arm_msg.velocity = [0.0] * len(self.joint_names)
+            arm_msg.effort = [0.0] * len(self.joint_names)
+            move_duration = (timestamps[i] - timestamps[max(i-1,0)]) * execute_time_factor
+            
+            if gripper_trajectory is not None and i < len(gripper_trajectory):
+                gripper_value = gripper_trajectory[i]
+                arm_msg.position.append(-2.0*gripper_value)
+            else:
+                arm_msg.position.append(0.01)
+        
+            self.joint_pub.publish(arm_msg)
+            print(f"Movement progress: {i}/{len(joint_trajectory)} - Sleep time: {move_duration}")
+            rospy.sleep(move_duration)
+        
+        print(f"Trajectory published successfully")
+
+    # def publish_single_trajectory(self, full_trajectory, timestamps, execute_time_factor=1.0):
+    #     if full_trajectory.shape[1] >= 6:
+    #         arm_traj = full_trajectory[:, :6]
+    #         gripper_traj = full_trajectory[:, 6] if full_trajectory.shape[1] > 6 else None
+            
+    #         self.publish_trajectory(arm_traj, gripper_traj, timestamps, execute_time_factor)
+    #     else:
+    #         rospy.logwarn(f"[Gazebo] Invalid trajectory shape: {full_trajectory.shape}")
+
+    def publish_home_position(self, current_position=None, home_position=None, execution_time=5.0):
+        # if home_position is None:
+        #     home_position = [-0.03834952, -0.84062147, 1.26093221, 0.00613592, 1.97576725, -0.00460194, 0.01]
+        
+        # print(f"[Gazebo] Publishing home position command...")
+        # print(f"[Gazebo] Home position: {home_position}")
+        # print(f"[Gazebo] Execution time: {execution_time} seconds")
+        
+        # arm_msg = JointState()
+        # arm_msg.header.stamp = rospy.Time.now()
+        # arm_msg.name = self.joint_names
+        
+        # arm_msg.position = home_position
+        # arm_msg.velocity = [0.0] * len(self.joint_names)
+        # arm_msg.effort = [0.0] * len(self.joint_names)
+                
+        # self.joint_pub.publish(arm_msg)
+        # print(f"[Gazebo] Home position command published and latched")
+
+        if home_position is None:
+            home_position = [-0.03834952, -0.84062147, 1.26093221, 0.00613592, 1.97576725, -0.00460194, 0.01]
+        if current_position is None:
+            current_position = [-0.03834952, -0.84062147, 1.26093221, 0.00613592, 1.97576725, -0.00460194, 0.01]
+        
+        print(f"[Gazebo] Publishing home position command...")
+        print(f"[Gazebo] Home position: {home_position}")
+        
+        home_position = np.array(home_position)
+        current_position = np.array(current_position)
+        joint_trajectory = []
+        gripper_trajectory = []
+        timestamps = []
+        next_timestamp = 0
+        for i in range(100):
+            a = i / 99
+            b = 1 - a
+            new_position = current_position * b + home_position * a
+            joint_trajectory.append(new_position[0:6])
+            gripper_trajectory.append(new_position[6] / -2)
+            timestamps.append(next_timestamp)
+            next_timestamp += 0.04
+        
+        self.publish_trajectory(joint_trajectory, gripper_trajectory, timestamps, 1)
+
+        print(f"[Gazebo] Home position command published and latched")
+    
+    def _joint_state_callback(self, msg):
+        """Internal callback to update the latest joint states."""
+        with self._joint_state_lock:
+            self._latest_joint_data["name"] = list(msg.name)
+            self._latest_joint_data["position"] = list(msg.position)
+            if len(msg.velocity) == len(msg.name):
+                self._latest_joint_data["velocity"] = list(msg.velocity)
+            else: # Fill with zeros if velocity is not available or mismatched
+                self._latest_joint_data["velocity"] = [0.0] * len(msg.name)
+            if len(msg.effort) == len(msg.name):
+                self._latest_joint_data["effort"] = list(msg.effort)
+            else: # Fill with zeros if effort is not available or mismatched
+                self._latest_joint_data["effort"] = [0.0] * len(msg.name)
+
+
+    def get_joint_states(self, desired_joint_order=None):
+        """
+        Retrieves the latest joint states for specified joints in a desired order.
+
+        Args:
+            desired_joint_order (list of str, optional): A list of joint names in the
+                desired order for the output. If None, uses the
+                `ordered_joint_names` the class was initialized with.
+
+        Returns:
+            dict: A dictionary with keys 'name', 'position', 'velocity', 'effort'.
+                  Each key maps to a list of values corresponding to `desired_joint_order`.
+                  Returns None if no data is available or if subscriber failed.
+                  If a desired joint is not found in the latest message, its values will be None.
+        """
+            
+        return {
+            "name": self._latest_joint_data['name'], # Ensure it's a list copy
+            "position": self._latest_joint_data['position'], # Ensure it's a list copy
+            "velocity": self._latest_joint_data['velocity'], # Ensure it's a list copy
+            "effort": self._latest_joint_data['effort'] # Ensure it's a list copy
+        }
+
 class GazeboTrajectoryPublisher:
     def __init__(self, joint_names=None, gripper_joint_names=None):
         if not rospy.core.is_initialized():
@@ -519,7 +681,6 @@ class GazeboTrajectoryPublisher:
             "effort": self._latest_joint_data['effort'] # Ensure it's a list copy
         }
 
-
 def animation_callback(step, graph, chain, joint_trajectory):
     chain.forward(joint_trajectory[step])
     graph.set_data()
@@ -556,7 +717,32 @@ def interpolate_joint_trajectory(joint_traj, time_stamps, target_freq=20.0):
     
     return interp_traj, new_timestamps
 
-def get_cube_position(cube_name, timeout=1.0):
+# def get_cube_position(cube_name, timeout=10.0):
+#     """Get position of a cube by its TF frame name"""
+#     print(f"Getting {cube_name} position...")
+#     if not rospy.core.is_initialized():
+#         rospy.init_node('tf_xyz_fetcher', anonymous=True)
+    
+#     listener = tf.TransformListener()
+#     start_time = rospy.Time.now()
+#     retry_rate = rospy.Rate(10)  # check 10 times per second
+
+#     print(f"Waiting for transform /world -> /{cube_name}...")
+#     while not rospy.is_shutdown():
+#         try:
+#             listener.waitForTransform('/world', f'/{cube_name}', rospy.Time(0), rospy.Duration(1.0))
+#             trans, _ = listener.lookupTransform('/world', f'/{cube_name}', rospy.Time(0))
+#             print(f"{cube_name} position: {trans}")
+#             return trans
+#         except Exception as e:
+#             if (rospy.Time.now() - start_time).to_sec() > timeout:
+#                 print(f"Error getting transform for {cube_name}: {e}")
+#                 return None
+#             else:
+#                 print("Transform not yet available, retrying...")
+#                 retry_rate.sleep()
+
+def get_cube_position(cube_name, timeout=10.0):
     """Get position of a cube by its TF frame name"""
     print(f"Getting {cube_name} position...")
     if not rospy.core.is_initialized():
@@ -593,7 +779,7 @@ def execute_motion(dmp_gen, dmp_save_path, cube_name, position_offset, publisher
     print(f"{motion_name.capitalize()} DMP loaded from: {dmp_save_path}")
     
     # Get target position
-    if target_pos is not None:
+    if target_pos is not None and cube_name == "":
         print(f"Using provided target position: {target_pos}")
         cube_position = target_pos
     else:
@@ -605,6 +791,7 @@ def execute_motion(dmp_gen, dmp_save_path, cube_name, position_offset, publisher
     # Set start and goal
     new_start = dmp_gen.dmp.start_y.copy()
     new_goal = dmp_gen.dmp.goal_y.copy()
+
 
 
     # set default start position from current joint positions
@@ -665,7 +852,7 @@ def execute_motion(dmp_gen, dmp_save_path, cube_name, position_offset, publisher
     IK_joint_trajectory = IK_joint_trajectory[:traj_length, :]
     
     if gripper_traj is not None:
-        gripper_traj = gripper_traj[:traj_length]
+        gripper_traj = gripper_traj[:traj_length] * 1.2
         full_trajectory = np.hstack((IK_joint_trajectory, -gripper_traj.reshape(-1, 1)))
     else:
         gripper_traj = np.zeros(traj_length)
@@ -695,30 +882,33 @@ def execute_motion(dmp_gen, dmp_save_path, cube_name, position_offset, publisher
     
  
     
-    
-    if motion_name == "pick":
-        delay = trajectory_execution_time + 2.0
-        print(f"Waiting for trajectory execution to complete ({delay:.2f} seconds)...")
-        rospy.sleep(trajectory_execution_time + 2.0)
-        attach_cube_to_gripper(cube_name)
-        print(f"[{motion_name}] Attached {cube_name} to gripper.")
-    elif motion_name == "place":
-        # Determine when gripper opens
-        idx = np.where(gripper_trajectory > -0.001)[0][0]
-        delay = interpolated_time[idx]*execute_time_factor
-        print(f"Watingin for : {delay} till gripper opens at {idx}") 
-        print(f"Waiting for trajectory execution to complete ({delay:.2f} seconds)...")
-        rospy.sleep(delay)
-        detach_cube_from_gripper(cube_name)
-        print(f"[{motion_name}] Detached {cube_name} from gripper.")
-        delay_2 = trajectory_execution_time - delay + 2.0
-        print(f"Waiting for additional {delay_2:.2f} seconds for detach to complete...")
-        rospy.sleep(delay_2)  # Wait for the detach to complete
-    else: 
-        rospy.sleep(trajectory_execution_time + 2.0)
+    if not isinstance(publisher, RealRobotTrajectoryPublisher):
+        if motion_name == "pick":
+            delay = trajectory_execution_time + 2.0
+            print(f"Waiting for trajectory execution to complete ({delay:.2f} seconds)...")
+            rospy.sleep(trajectory_execution_time + 2.0)
+            attach_cube_to_gripper(cube_name)
+            print(f"[{motion_name}] Attached {cube_name} to gripper.")
+        elif motion_name == "place":
+            # Determine when gripper opens
+            idx = np.where(gripper_trajectory > -0.001)[0][0]
+            delay = interpolated_time[idx]*execute_time_factor
+            print(f"Watingin for : {delay} till gripper opens at {idx}") 
+            print(f"Waiting for trajectory execution to complete ({delay:.2f} seconds)...")
+            rospy.sleep(delay)
+            detach_cube_from_gripper(cube_name)
+            print(f"[{motion_name}] Detached {cube_name} from gripper.")
+            delay_2 = trajectory_execution_time - delay + 2.0
+            print(f"Waiting for additional {delay_2:.2f} seconds for detach to complete...")
+            rospy.sleep(delay_2)  # Wait for the detach to complete
+        else: 
+            rospy.sleep(trajectory_execution_time + 2.0)
 
     print(f"[{motion_name}] Motion completed successfully!")
-    return True
+
+    last_trajectory = arm_trajectory[-1].tolist()
+    last_trajectory.append(gripper_trajectory[-1])
+    return last_trajectory
 
 def attach_cube_to_gripper(cube_name):
     # rospy.init_node('demo_detach_links')

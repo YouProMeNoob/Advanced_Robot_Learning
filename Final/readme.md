@@ -69,3 +69,9 @@ export ROS_MASTER_URI=http://127.0.0.1:11311
 
 
 
+```bash
+LD_PRELOAD=/lib/x86_64-linux-gnu/libffi.so.7:/lib/x86_64-linux-gnu/libp11-kit.so.0:/lib/x86_64-linux-gnu/libtiff.so.5 python3 4_rs_detect.py
+```
+
+
+

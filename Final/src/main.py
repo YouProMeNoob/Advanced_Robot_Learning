@@ -3,9 +3,13 @@ import math
 import re
 import rospy
 
-from pick_and_place_V2 import DMPMotionGenerator, GazeboTrajectoryPublisher, execute_motion, get_cube_position
+from pick_and_place_V2 import DMPMotionGenerator, RealRobotTrajectoryPublisher, GazeboTrajectoryPublisher, execute_motion, get_cube_position
 
 from chatgpt_call import ask_llm
+
+home_position = [-0.03834952, -0.84062147, 1.26093221, 0.00613592, 1.97576725, -0.00460194]
+home_position_close = [-0.03834952, -0.84062147, 1.26093221, 0.00613592, 1.97576725, -0.00460194, -0.01] 
+home_position_open = [-0.03834952, -0.84062147, 1.26093221, 0.00613592, 1.97576725, -0.00460194, 0.01]
 
 def distance(pos1, pos2):
     return math.sqrt(
@@ -65,7 +69,7 @@ class TowerOfHanoi():
 
     def init_cubes(self):
         for cube in self.cubes.values():
-            cube.position = get_cube_position(cube.name, timeout=0.5)
+            cube.position = get_cube_position(cube.name, timeout=10)
 
     def assign_cubes_to_rods(self):
         
@@ -74,7 +78,9 @@ class TowerOfHanoi():
 
         # find closest rod
         for cube in self.cubes.values():
-            cube.position = get_cube_position(cube.name, timeout=0.5)
+            temp_pos = get_cube_position(cube.name, timeout=10)
+            if temp_pos is not None:
+                cube.position = temp_pos 
             
             closest_rod = None
             min_dist = float('inf')
@@ -137,7 +143,7 @@ def parse_response(text, tower: TowerOfHanoi):
         movement = Movement(cube=cube, start_rod=start_rod, end_rod=end_rod)
         tower.addMovement(movement)
 
-def pick_place(toh: TowerOfHanoi, cube: Cube, start_rod: Rod, end_rod: Rod, return_home:bool = False):
+def pick_place(toh: TowerOfHanoi, cube: Cube, start_rod: Rod, end_rod: Rod, return_home:bool = True):
     print("=== Starting Pick and Place Operation ===")
     
 
@@ -155,10 +161,8 @@ def pick_place(toh: TowerOfHanoi, cube: Cube, start_rod: Rod, end_rod: Rod, retu
             print("end_rod = None!")
             exit(1)
 
-        offset_pick = 0.02 # + len(toh.rods[start_rod.name].cubes) * 0.01
-        offset_place = 0.01 + len(toh.rods[end_rod.name].cubes) * 0.04
 
-        # TODO maybe adjust boundaries
+        # maybe adjust boundaries
         left_boundary = 0.04
         right_boundary = -0.04
 
@@ -170,83 +174,112 @@ def pick_place(toh: TowerOfHanoi, cube: Cube, start_rod: Rod, end_rod: Rod, retu
             base_link="world"
         )
         
-        publisher = GazeboTrajectoryPublisher()
+        publisher = RealRobotTrajectoryPublisher() # change to GazeboTrajectoryPublisher() for sim
         rospy.sleep(2.0)
-    
+
+        pick_offset = [0.0, 0.0, 0.0];
+        place_offset = [0.0, 0.0, 0.13]
         # Select the path (left, right middle)
         if right_boundary <= cube.position[1] <= left_boundary:
             pick_dmp_path =  pick_dmp_front_path
+            pick_offset = [-0.023, 0.015, -0.022]
+
         elif right_boundary > cube.position[1]:
             pick_dmp_path =  pick_dmp_right_path
-        else:
+            pick_offset = [-0.025, 0.015, -0.025]
+
+        elif left_boundary < cube.position[1]:
             pick_dmp_path =  pick_dmp_left_path
+            pick_offset = [-0.03, 0.02, -0.015]
+        
+            
 
         if right_boundary <= end_rod.position[1] <= left_boundary:
             place_dmp_path =  place_dmp_front_path
-        elif right_boundary > cube.position[1]:
+            place_offset = [-0.025, 0.015, 0.01]
+
+        elif right_boundary > end_rod.position[1]:
             place_dmp_path =  place_dmp_right_path
-        else:
+            # place_offset = [-0.035, 0.017, 0.03]
+            place_offset = [-0.005, 0.017, 0.04]
+
+        elif left_boundary < end_rod.position[1]:
             place_dmp_path =  place_dmp_left_path
+            place_offset = [-0.035, 0.025, 0.025]
+            # kleiner cube
+
+
         
         
         # RETURN TO HOME
         if return_home:
             print("\n=== Returning to Home Position ===")
             publisher.publish_home_position(
-                home_position=home_position,
+                current_position=home_position_open,
+                home_position=home_position_open,
                 execution_time=5.0
             )
             rospy.sleep(6.0)  # Wait for the robot to return to home position
 
         # 1. PICK MOTION - Blue Cube
         print(f"using path {pick_dmp_path}")
-        success = execute_motion(
+        joint_position = execute_motion(
                 dmp_gen=dmp_gen,
                 dmp_save_path=pick_dmp_path,
                 cube_name=cube.name,
-                position_offset=[0.0, 0.0, offset_pick],  # Slight offset above cube
+                position_offset=pick_offset,  # Slight offset above cube
                 publisher=publisher,
                 motion_name="pick",
-                execute_time_factor=5,
+                execute_time_factor=3,
                 visualize=False,  # Set to False to skip visualization
                 publish_enable=True,  # Set to True to publish trajectory
         )
         
-        if not success:
+        if joint_position is []:
             print("Pick motion failed!")
             exit(1)
         
         # 2. RETURN TO HOME
         print("\n=== Returning to Home Position ===")
         publisher.publish_home_position(
-            home_position=home_position,
+            current_position=joint_position,
+            home_position=home_position_close,
             execution_time=5.0
         )
         print("[Home] Waiting for home position...")
-        rospy.sleep(6.0)  # Wait for home position completion
+        rospy.sleep(15.0)  # Wait for home position completion
         print("[Home] Home position reached!")
         
-        success = execute_motion(
+        pos_hight = 0.01
+
+        if len(toh.rods[end_rod.name].cubes):
+            pos_hight = len(toh.rods[end_rod.name].cubes) * 35 / 1000 + 0.04
+            # end_cube_name = toh.rods[end_rod.name].cubes[-1].name
+        
+        end_rod.position[2] = pos_hight 
+
+        joint_position = execute_motion(
             dmp_gen=dmp_gen,
             dmp_save_path=place_dmp_path,
-            cube_name=cube.name,
-            position_offset=[0.0, 0.0, offset_place],  # Offset above green cube for placing
+            cube_name="",
+            position_offset=place_offset,  # Offset above green cube for placing
             publisher=publisher,
             motion_name="place",
-            execute_time_factor=5,
+            execute_time_factor=3,
             visualize=False, # Set to True if you want to visualize
             target_pos=end_rod.position,  # Use the peg position for placing
             publish_enable=True,  # Set to True to publish trajectory
         )
         
-        if not success:
+        if joint_position is []:
             print("Place motion failed!")
             exit(1)
         
         # 4. FINAL RETURN TO HOME
         print("\n=== Final Return to Home Position ===")
         publisher.publish_home_position(
-            home_position=home_position,
+            current_position=joint_position,
+            home_position=home_position_open,
             execution_time=5.0
         )
         print("[Final] Returning to home position...")
@@ -306,6 +339,8 @@ def get_valid_input(prompt, valid_values, to_upper=False):
 
 
 if __name__ == "__main__":
+
+
     # Configuration
     urdf_path = '/root/catkin_ws/src/open_manipulator_friends/open_manipulator_6dof_description/urdf/open_manipulator_6dof.urdf'
     mesh_path = '/root/catkin_ws/src/open_manipulator_friends/open_manipulator_6dof_description/meshes'
@@ -319,15 +354,13 @@ if __name__ == "__main__":
     place_dmp_front_path = '/root/catkin_ws/src/recordings/place_front_motion10.pkl'
     place_dmp_right_path = '/root/catkin_ws/src/recordings/place_right_motion10.pkl'
     
-    # Home position
-    home_position = [-0.09970875084400177, -0.1902136206626892, 1.4710875749588013, 0.04295146465301514, 1.702718734741211, -0.058291271328926086]
-
 
     # Set the rod positions corresponding to the cube positions
+
     toh = TowerOfHanoi()
-    toh.addCube(Cube('blue_cube',1))
-    toh.addCube(Cube('red_cube',2))
-    toh.addCube(Cube('green_cube',3))
+    toh.addCube(Cube('cube_2',1))
+    toh.addCube(Cube('cube_3',2))
+    toh.addCube(Cube('cube_4',3))
 
     print("\n\n=============== Mark Rod Positions ===============\n")
     while True:
